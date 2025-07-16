@@ -1,0 +1,12 @@
+streamlit
+PyMuPDF
+spire.pdf
+camelot-py[cv]
+matplotlib
+numpy
+reportlab
+Pillow
+transformers
+torch
+requests
+google-generativeai 

@@ -10,3 +10,4 @@ transformers
 torch
 requests
 google-generativeai 
+sentencepiece

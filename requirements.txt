@@ -6,8 +6,8 @@ matplotlib
 numpy
 reportlab
 Pillow
+sentencepiece==0.1.99
 transformers
 torch
 requests
-google-generativeai 
-sentencepiece
+google-generativeai

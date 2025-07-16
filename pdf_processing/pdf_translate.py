@@ -21,6 +21,9 @@ import warnings
 import gc
 from reportlab.platypus import Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
+import sys
+if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
+    os.add_dll_directory(os.getcwd())
 
 warnings.filterwarnings("ignore")
 

@@ -383,7 +383,8 @@ def render_tables(npg, page_tables, font, pad, fsize, images_dir, out_pdf=None, 
         npg.insert_image(fit_rect, filename=image_path)
 
 def process_pdf(input_pdf: str, output_pdf: str, json_file: str, font_path: str, translator: Any, dist_thr: int, pad: int, fsize: int, target_lang: str = "ja", max_pages: Optional[int] = None, should_stop=None) -> None:
-    os.add_dll_directory(os.getcwd())
+   if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
+       os.add_dll_directory(os.getcwd())
     font = get_font(font_path)
     output_dir = os.path.dirname(output_pdf)
     images_dir = os.path.join(output_dir, "images")

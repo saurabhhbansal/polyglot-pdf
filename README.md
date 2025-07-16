@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# polygot-pdf
-=======
 # PolyglotPDF
 
 A professional PDF translation tool that allows you to translate PDF documents into multiple languages using advanced AI models and APIs.

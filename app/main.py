@@ -16,7 +16,7 @@ import concurrent.futures
 import time
 
 st.set_page_config(
-    page_title="PolygotPDF",
+    page_title="PolyglotPDF",
     layout="wide",
     initial_sidebar_state="expanded",
     page_icon="📄"

@@ -2,6 +2,8 @@
 
 A professional PDF translation tool that allows you to translate PDF documents into multiple languages using advanced AI models and APIs.
 
+![App Screenshot](https://i.postimg.cc/Kvd99SmP/Screenshot-2025-07-16-183424.png)
+
 ## Features
 - Translate PDFs to Japanese, Spanish, and more using Google Gemini, Qwen, and other models
 - Streamlit web interface for easy uploads and downloads

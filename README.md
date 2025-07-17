@@ -12,7 +12,7 @@ A professional PDF translation tool that allows you to translate PDF documents i
 
 ## Project Structure
 ```
-Translating-Model/
+polyglot-pdf/
 │
 ├── app/                        # Streamlit UI code
 │   └── main.py                 # Main Streamlit app

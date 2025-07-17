@@ -14,6 +14,7 @@ import shutil
 import datetime
 import concurrent.futures
 import time
+import uuid
 
 st.set_page_config(
     page_title="PolygotPDF",
@@ -364,12 +365,13 @@ if translate_btn and uploaded_file and selected_pairs:
                     st.markdown("### Download your translated files:")
                     for key in st.session_state['translation_result_keys']:
                         result = st.session_state['translation_results'][key]
+                        unique_id = str(uuid.uuid4())
                         st.download_button(
                             label=f"Download PDF: {result['lang']} ({result['translator']})",
                             data=result['pdf_bytes'],
                             file_name=result['pdf_name'],
                             mime="application/pdf",
-                            key=f"dl_pdf_{key}"
+                            key=f"dl_pdf_{key}_{unique_id}"
                         )
             else:
                 st.toast(f"No files were generated before stopping.")
@@ -380,24 +382,26 @@ if translate_btn and uploaded_file and selected_pairs:
                 st.markdown("### Download your translated files:")
                 for key in st.session_state['translation_result_keys']:
                     result = st.session_state['translation_results'][key]
+                    unique_id = str(uuid.uuid4())
                     st.download_button(
                         label=f"Download PDF: {result['lang']} ({result['translator']})",
                         data=result['pdf_bytes'],
                         file_name=result['pdf_name'],
                         mime="application/pdf",
-                        key=f"dl_pdf_{key}"
+                        key=f"dl_pdf_{key}_{unique_id}"
                     )
 
 # --- Always show download buttons for all results in session state ---
 if st.session_state.get('translation_results'):
     st.markdown("### Download your translated files:")
     for key, result in st.session_state['translation_results'].items():
+        unique_id = str(uuid.uuid4())
         st.download_button(
             label=f"Download PDF: {result['lang']} ({result['translator']})",
             data=result['pdf_bytes'],
             file_name=result['pdf_name'],
             mime="application/pdf",
-            key=f"dl_pdf_{key}"
+            key=f"dl_pdf_{key}_{unique_id}"
         )
 
 if not (translate_btn and uploaded_file and selected_pairs):

@@ -107,12 +107,8 @@ TRANSLATOR_OPTIONS = {
     "Spanish": ["Google Gemini", "Helsinki-NLP", "Google Translate"]
 }
 
-# Remove is_translating logic and always enable widgets
-# --- Combined multi-select for (language, translator) pairs ---
-combined_options = []
-for lang in LANGUAGES:
-    for translator in TRANSLATOR_OPTIONS[lang]:
-        combined_options.append(f"{lang} ({translator})")
+# Remove the old checkbox UI and logic for language/model selection
+# (The dropdowns now handle all selection)
 
 # Place the file uploader at the correct location
 uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
@@ -141,6 +137,10 @@ stop_key = "stop_translation"
 if stop_key not in st.session_state:
     st.session_state[stop_key] = False
 
+# Add a flag to track if the user canceled the API key dialog
+if 'api_key_dialog_canceled' not in st.session_state:
+    st.session_state['api_key_dialog_canceled'] = False
+
 # --- Combined API Key Dialog for both Gemini and OpenRouter ---
 @st.dialog("Enter your API Keys")
 def api_key_dialog():
@@ -152,46 +152,64 @@ def api_key_dialog():
             st.session_state['gemini_api_key'] = gemini_key
             st.session_state['openrouter_api_key'] = openrouter_key
             st.session_state['show_api_key_dialog'] = False
+            st.session_state['api_key_dialog_canceled'] = False
             st.rerun()
     with col2:
         if st.button("Cancel", key='cancel_both_keys'):
             st.session_state['show_api_key_dialog'] = False
+            st.session_state['api_key_dialog_canceled'] = True
             st.rerun()
 
-# Show combined dialog if either key is missing or either button is clicked
-if not st.session_state['gemini_api_key'] or not st.session_state['openrouter_api_key'] or st.session_state['show_api_key_dialog']:
+# Show combined dialog if either key is missing and the dialog has not been canceled, or if the button is clicked
+if (
+    (not st.session_state['gemini_api_key'] or not st.session_state['openrouter_api_key'])
+    and not st.session_state['api_key_dialog_canceled']
+) or st.session_state['show_api_key_dialog']:
     st.session_state['show_api_key_dialog'] = True
     api_key_dialog()
 
-# --- Combined row for translation options and single API key button, all centered ---
-if 'selected_translators' not in st.session_state:
-    st.session_state['selected_translators'] = {lang: set(TRANSLATOR_OPTIONS[lang]) for lang in LANGUAGES}
+# --- Language and Model Selection (Dropdowns) ---
+language_options = list(LANGUAGES.keys())
+# --- Language, Model, and API Key Selection in the Same Row ---
+lang_col, model_col, api_col = st.columns([3, 3, 1])
+with lang_col:
+    language = st.selectbox("Select language", ["Select a language"] + language_options, index=0, key="language_select")
+with model_col:
+    model = None
+    model_options = []
+    if language and language != "Select a language":
+        model_options = TRANSLATOR_OPTIONS[language]
+        model_labels = [f"{m} (Recommended)" if m == "Google Translate" else m for m in model_options]
+        default_model_index = model_options.index("Google Translate") if "Google Translate" in model_options else 0
+        model = st.selectbox(
+            "Select model",
+            model_labels,
+            index=default_model_index,
+            key="model_select"
+        )
+        if model.endswith("(Recommended)"):
+            model = model.replace(" (Recommended)", "")
+    else:
+        st.info("Please select a language to choose a model.")
+with api_col:
+    st.write("")
+    api_btn = st.button('🔑 API Keys', help='Set API Keys', key='change_api_keys_btn')
+    if api_btn:
+        st.session_state['show_api_key_dialog'] = True
 
+selected_pairs = []
+if language and language != "Select a language" and model:
+    selected_pairs = [f"{language} ({model})"]
+
+# --- Combined row for translation options and single API key button, all centered ---
+# (Removed old API key button from previous column logic)
 opt_col, key_col = st.columns([8, 1])
-with opt_col:
-    st.markdown('<div style="display: flex; flex-direction: column; align-items: center;">', unsafe_allow_html=True)
-    st.markdown('**Select translation options:**')
-    check_cols = st.columns(len(LANGUAGES))
-    selected_pairs = []
-    for idx, lang in enumerate(LANGUAGES):
-        with check_cols[idx]:
-            st.markdown(f'<div style="text-align:center;font-weight:bold;">{lang}</div>', unsafe_allow_html=True)
-            for translator in TRANSLATOR_OPTIONS[lang]:
-                checked = translator in st.session_state['selected_translators'][lang]
-                new_checked = st.checkbox(translator, value=checked, key=f'{lang}_{translator}_chk')
-                if new_checked:
-                    st.session_state['selected_translators'][lang].add(translator)
-                else:
-                    st.session_state['selected_translators'][lang].discard(translator)
-                if new_checked:
-                    selected_pairs.append(f"{lang} ({translator})")
-    st.markdown('</div>', unsafe_allow_html=True)
 with key_col:
     st.write("")
     st.write("")
     api_btn_container = st.container()
     with api_btn_container:
-        api_btn = st.button('🔑 API Keys', help='Set API Keys', key='change_api_keys_btn')
+        # api_btn = st.button('🔑 API Keys', help='Set API Keys', key='change_api_keys_btn')
         st.markdown("""
             <style>
             div[data-testid=\"column\"] button#change_api_keys_btn {
@@ -345,7 +363,7 @@ if translate_btn and uploaded_file and selected_pairs:
                     }
                     st.session_state['translation_status'][key] = 'done'
                     translation_results.append(key)
-                    st.success(f"{lang_name} ({translator_name}) translation complete!")
+                    st.toast(f"{lang_name} ({translator_name}) translation complete!")
                 else:
                     st.session_state['translation_status'][key] = 'error: output file not created'
                     st.error(f"Translation failed or file not created for {lang_name} ({translator_name}).")
@@ -376,20 +394,7 @@ if translate_btn and uploaded_file and selected_pairs:
             else:
                 st.toast(f"No files were generated before stopping.")
         else:
-            st.toast(f"All selected translations are complete! Total time: {format_elapsed_time(elapsed)}.")
-            # --- Always show download buttons for all results in session state ---
-            if st.session_state.get('translation_result_keys'):
-                st.markdown("### Download your translated files:")
-                for key in st.session_state['translation_result_keys']:
-                    result = st.session_state['translation_results'][key]
-                    unique_id = str(uuid.uuid4())
-                    st.download_button(
-                        label=f"Download PDF: {result['lang']} ({result['translator']})",
-                        data=result['pdf_bytes'],
-                        file_name=result['pdf_name'],
-                        mime="application/pdf",
-                        key=f"dl_pdf_{key}_{unique_id}"
-                    )
+            st.success(f"All selected translations are complete! Total time: {format_elapsed_time(elapsed)}.")
 
 # --- Always show download buttons for all results in session state ---
 if st.session_state.get('translation_results'):

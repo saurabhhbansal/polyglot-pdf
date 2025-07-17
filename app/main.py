@@ -16,7 +16,7 @@ import concurrent.futures
 import time
 
 st.set_page_config(
-    page_title="PolyglotPDF",
+    page_title="PolygotPDF",
     layout="wide",
     initial_sidebar_state="expanded",
     page_icon="📄"
@@ -387,6 +387,18 @@ if translate_btn and uploaded_file and selected_pairs:
                         mime="application/pdf",
                         key=f"dl_pdf_{key}"
                     )
+
+# --- Always show download buttons for all results in session state ---
+if st.session_state.get('translation_results'):
+    st.markdown("### Download your translated files:")
+    for key, result in st.session_state['translation_results'].items():
+        st.download_button(
+            label=f"Download PDF: {result['lang']} ({result['translator']})",
+            data=result['pdf_bytes'],
+            file_name=result['pdf_name'],
+            mime="application/pdf",
+            key=f"dl_pdf_{key}"
+        )
 
 if not (translate_btn and uploaded_file and selected_pairs):
     st.info(" Upload a PDF, select language(s), and click 'Translate PDF' to get started.")

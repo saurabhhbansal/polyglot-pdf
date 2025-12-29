@@ -11,3 +11,7 @@ transformers
 torch
 requests
 google-generativeai
+pytesseract
+requests
+opencv-python
+pillow

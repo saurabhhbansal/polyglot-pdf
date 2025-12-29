@@ -142,6 +142,7 @@ cd polyglot-pdf
 
 # Install Python dependencies
 pip install -r requirements.txt
+#To use OCR need tesseractOCR with eng+ch_sim languages weights installed
 ```
 
 ### 2. System Dependencies (Optional)
@@ -209,6 +210,13 @@ streamlit run app/main.py
 - **Qwen**: Specialized for Japanese with cultural nuance understanding
 - **Helsinki-NLP**: Fast offline processing for standard translations
 - **Google Translate**: Reliable fallback option with broad language support
+### Image Translation model selection
+- **ocr+GoogleTranslator**: Best for skanned images, or images with high quality chars resolution
+- **GPT**: Used for translate in cases, where ocr have no idea how to work with text. Works slightly faster, but requires OpenAI API KEY, and results have char artifacts
+
+<img width="498" height="498" alt="image" src="https://github.com/user-attachments/assets/1d2e337e-5590-4f10-a035-cd1cb479b33f" /><img width="498" height="437" alt="image" src="https://github.com/user-attachments/assets/383f783b-dd4c-4e86-9b31-e5c7826cdf0e" />
+
+
 
 ## 🌐 Live Demo
 

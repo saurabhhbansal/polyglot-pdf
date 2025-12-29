@@ -22,6 +22,7 @@ import gc
 from reportlab.platypus import Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 import sys
+
 if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
     os.add_dll_directory(os.getcwd())
 
@@ -29,6 +30,97 @@ warnings.filterwarnings("ignore")
 
 import warnings as _warnings
 _warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*ARC4.*")
+def ocr_translate_image(
+    image_path: str,
+    translator,
+    target_lang: str,
+    font_path: str,
+    font_size: int = 18
+) -> str:
+    import pytesseract
+    import cv2
+    from PIL import ImageDraw, ImageFont
+    img = cv2.imread(image_path)
+    if img is None:
+        return image_path
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)[1]
+
+    data = pytesseract.image_to_data(
+        gray,
+        output_type=pytesseract.Output.DICT,
+        lang="eng+chi_sim"
+    )
+
+    pil_img = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(pil_img)
+    font = ImageFont.truetype(font_path, font_size)
+
+    for i in range(len(data["text"])):
+        text = data["text"][i].strip()
+        if not text:
+            continue
+
+        try:
+            translated = translator.translate(text)
+        except Exception:
+            translated = text
+
+        x, y, w, h = (
+            data["left"][i],
+            data["top"][i],
+            data["width"][i],
+            data["height"][i],
+        )
+
+        draw.rectangle(
+            [x, y, x + w, y + h],
+            fill="white"
+        )
+        draw.text(
+            (x, y),
+            translated,
+            fill="black",
+            font=font
+        )
+
+    out_path = image_path.replace(".png", "_translated.png")
+    pil_img.save(out_path)
+    return out_path
+def gpt_translate_image(image_path: str,target_lang: str, open_ai_token: str) -> str:
+    import requests 
+    import base64
+    
+    edit_url = "https://api.openai.com/v1/images/edits"
+    headers = { 
+    "Authorization": f"Bearer {open_ai_token}"
+    } 
+    files = { 
+    "image": open(image_path, "rb")
+    } 
+    data = { 
+    "model": "gpt-image-1", 
+    "prompt": f"Translate all text on image to {target_lang} language. Save style, fonts, color and text placement.", 
+    "n": 1, 
+    "size": "1024x1024"
+    }
+    response = requests.post(edit_url, headers=headers, files=files, data=data)
+    try:
+        image_base64 = response.json()["data"][0]['b64_json']
+        out_path = image_path.replace(".png", "_translated.png")
+        with open(out_path, "wb") as f:
+            f.write(base64.b64decode(image_base64))
+        with Image.open(image_path) as src_img:
+            target_size = src_img.size 
+        with Image.open(out_path) as out_img:
+            out_img = out_img.resize(target_size, Image.LANCZOS)
+            out_img.save(out_path)
+
+    except Exception as e:
+        print(e,response.text)
+        return image_path
+    return out_path
 
 # --- Rectangle extraction logic ---
 def extract_rects(input_pdf_path: str) -> List[Dict[str, Any]]:
@@ -382,7 +474,7 @@ def render_tables(npg, page_tables, font, pad, fsize, images_dir, out_pdf=None, 
         fit_rect = fitz.Rect(rect.x0, rect.y0, rect.x1, rect.y1)
         npg.insert_image(fit_rect, filename=image_path)
 
-def process_pdf(input_pdf: str, output_pdf: str, json_file: str, font_path: str, translator: Any, dist_thr: int, pad: int, fsize: int, target_lang: str = "ja", max_pages: Optional[int] = None, should_stop=None) -> None:
+def process_pdf(input_pdf: str, output_pdf: str, json_file: str, font_path: str, translator: Any, dist_thr: int, pad: int, fsize: int, target_lang: str = "ja", max_pages: Optional[int] = None, should_stop=None,image_translator: str='ocr+GoogleTranslator',open_ai_token:str='-') -> None:
     if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
        os.add_dll_directory(os.getcwd())
     font = get_font(font_path)
@@ -431,13 +523,37 @@ def process_pdf(input_pdf: str, output_pdf: str, json_file: str, font_path: str,
         page_images = [img for img in images if img['page'] == pnum+1]
         page_images.sort(key=lambda img: img['bbox'][1])
         for img in images:
-            if img["page"] == pnum+1:
+            if img["page"] == pnum + 1:
                 x0, y0, x1, y1 = img["bbox"]
+
+                img_path = img["file"]
+
                 try:
-                    npg.insert_image(fitz.Rect(x0, y0, x1, y1), filename=img["file"])
-                    page_data["images"].append({"file": img["file"], "bbox": img["bbox"]})
+                    if image_translator=='GPT':
+                        translated_img=gpt_translate_image(image_path=img_path,target_lang=target_lang, open_ai_token=open_ai_token)
+                    else:
+                        translated_img = ocr_translate_image(
+                            image_path=img_path,
+                            translator=translator,
+                            target_lang=target_lang,
+                            font_path=FONT_PATH,
+                            font_size=FONT_SIZE * 2
+                        )
+
+                    npg.insert_image(
+                        fitz.Rect(x0, y0, x1, y1),
+                        filename=translated_img
+                    )
+
+                    page_data["images"].append({
+                        "orig": img_path,
+                        "translated": translated_img,
+                        "bbox": img["bbox"]
+                    })
+
                 except Exception as e:
-                    logger.warning(f"Failed to insert image {img['file']}: {e}")
+                    logger.warning(f"OCR image failed {img_path}: {e}")
+
         try:
             blocks = page.get_text("dict")["blocks"]  # type: ignore
         except AttributeError:

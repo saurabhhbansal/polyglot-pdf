@@ -99,11 +99,18 @@ st.markdown("Upload a PDF and get your translated document in seconds.")
 # --- Supported languages and translators ---
 LANGUAGES = {
     "Japanese": "ja",
-    "Spanish": "es"
+    "Spanish": "es",
+    "Russian": "ru",
+    "English": "en",
+    
+    
 }
 # --- Add Qwen model for Japanese ---
 TRANSLATOR_OPTIONS = {
     "Japanese": ["Google Gemini", "Qwen", "Google Translate"],
+    "Russian": ["Google Gemini", "Qwen", "Google Translate"],
+    "English": ["Google Gemini", "Qwen", "Google Translate"],
+    
     "Spanish": ["Google Gemini", "Helsinki-NLP", "Google Translate"]
 }
 
@@ -132,6 +139,10 @@ if 'translation_status' not in st.session_state:
     st.session_state['translation_status'] = {}
 if 'translation_result_keys' not in st.session_state:
     st.session_state['translation_result_keys'] = []
+if 'openai_api_key' not in st.session_state:
+    st.session_state['openai_api_key'] = ''
+if 'image_translator' not in st.session_state:
+    st.session_state['image_translator'] = 'ocr+GoogleTranslator'
 
 stop_key = "stop_translation"
 if stop_key not in st.session_state:
@@ -189,6 +200,14 @@ with model_col:
         )
         if model.endswith("(Recommended)"):
             model = model.replace(" (Recommended)", "")
+        image_translator = st.selectbox(
+            "Image translation method",
+            ["ocr+GoogleTranslator", "GPT"],
+            index=0,
+            key="image_translator_select"
+        )
+        st.session_state['image_translator'] = image_translator
+
     else:
         st.info("Please select a language to choose a model.")
 with api_col:
@@ -200,6 +219,12 @@ with api_col:
 selected_pairs = []
 if language and language != "Select a language" and model:
     selected_pairs = [f"{language} ({model})"]
+openai_key = st.text_input(
+    "OpenAI API Key",
+    type="password",
+    value=st.session_state.get('openai_api_key', '')
+)
+st.session_state['openai_api_key'] = openai_key
 
 # --- Combined row for translation options and single API key button, all centered ---
 # (Removed old API key button from previous column logic)
@@ -329,7 +354,15 @@ if translate_btn and uploaded_file and selected_pairs:
                         continue
                     translator = QwenJapaneseTranslator(st.session_state['openrouter_api_key'])
                 elif translator_name == "Google Translate":
-                    target_lang = 'ja' if lang_name == 'Japanese' else 'es'
+                    if lang_name == 'Japanese':
+                        target_lang = 'ja'  
+                    elif lang_name == 'Spanish':
+                        target_lang = 'es'
+                    elif lang_name == 'Russian':
+                        target_lang = 'ru'
+                    elif lang_name == 'English':
+                        target_lang = 'en'
+                    
                     translator = GoogleTranslateTranslator(target_lang)
                 else:
                     st.error(f"Unknown translator: {translator_name}")
@@ -346,7 +379,10 @@ if translate_btn and uploaded_file and selected_pairs:
                         pad=6,
                         fsize=10,
                         target_lang=lang_code,
-                        should_stop=should_stop
+                        should_stop=should_stop,
+                        image_translator=st.session_state['image_translator'],
+                        open_ai_token=st.session_state['openai_api_key']
+
                     )
                 if os.path.exists(output_pdf):
                     with open(output_pdf, "rb") as f:
